@@ -44,6 +44,8 @@ aws cloudformation deploy \
   --capabilities CAPABILITY_NAMED_IAM
 ```
 
+> Note: This repository does not contain any actual AWS credentials or secret material. You must provide your own AWS credentials via the AWS CLI, environment variables, or other supported methods before deploying.
+
 ## Parameters
 
 - `IAMUserName` — Name of the IAM user to create. Default: `contractor-user`
