@@ -1,0 +1,97 @@
+# ═══════════════════════════════════════════════════════════════
+#  Assignment 5 — Deploy CloudFormation IAM Stack via GitHub Actions
+#  Note: Requires AWS credentials (AWS_ACCESS_KEY_ID,
+#        AWS_SECRET_ACCESS_KEY) configured as GitHub Secrets.
+#        Workflow demonstrates IaC CI/CD pattern.
+# ═══════════════════════════════════════════════════════════════
+
+name: Deploy CloudFormation IAM Stack
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'iam-contractors.yml'       # only trigger when CFN template changes
+  workflow_dispatch:                 # manual trigger from GitHub UI
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        default: 'dev'
+        type: choice
+        options: [dev, staging, prod]
+      iam_user_name:
+        description: 'IAM username to create'
+        required: true
+        default: 'contractor-user'
+
+jobs:
+
+  validate:
+    name: Validate CloudFormation Template
+    runs-on: ubuntu-latest
+    steps:
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install cfn-lint
+        run: pip install cfn-lint
+
+      - name: Lint CloudFormation template
+        run: cfn-lint iam-contractors.yml
+
+      - name: Upload template as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cfn-template
+          path: iam-contractors.yml
+          retention-days: 7
+
+  deploy:
+    name: Deploy to AWS
+    runs-on: ubuntu-latest
+    needs: validate           # only deploy if validation passes
+    environment: ${{ github.event.inputs.environment || 'dev' }}
+
+    steps:
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region:            ${{ vars.AWS_REGION || 'us-east-1' }}
+
+      - name: Deploy CloudFormation stack
+        run: |
+          aws cloudformation deploy \
+            --template-file iam-contractors.yml \
+            --stack-name contractors-iam-stack \
+            --parameter-overrides \
+                IAMUserName=${{ github.event.inputs.iam_user_name || 'contractor-user' }} \
+                Environment=${{ github.event.inputs.environment || 'dev' }} \
+            --capabilities CAPABILITY_NAMED_IAM \
+            --no-fail-on-empty-changeset
+
+      - name: Fetch and display stack outputs
+        run: |
+          aws cloudformation describe-stacks \
+            --stack-name contractors-iam-stack \
+            --query 'Stacks[0].Outputs' \
+            --output table
+
+      - name: Publish deployment summary
+        if: always()
+        run: |
+          echo "## CloudFormation Deployment" >> $GITHUB_STEP_SUMMARY
+          echo "| Key | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|---|---|" >> $GITHUB_STEP_SUMMARY
+          echo "| Stack | \`contractors-iam-stack\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Template | \`iam-contractors.yml\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Environment | \`${{ github.event.inputs.environment || 'dev' }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Region | \`${{ vars.AWS_REGION || 'us-east-1' }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Triggered by | \`${{ github.actor }}\` |" >> $GITHUB_STEP_SUMMARY
