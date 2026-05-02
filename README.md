@@ -1,40 +1,45 @@
 # assignment5-cloudformation-iamuser
 
-This repository contains an AWS CloudFormation template for creating a contractor IAM user, attaching that user to a Contractors group, and granting the group scoped access to EC2, S3, and EKS.
+This repository contains an AWS CloudFormation template that creates a contractor IAM user, places the user in a `Contractors` group, and attaches scoped permissions for EC2, S3, and EKS.
 
 ## Files
 
-- `iam-contractors.yml` — CloudFormation template defining:
-  - IAM Managed Policy for contractor access
-  - IAM Group named `Contractors`
-  - IAM User created from the `IAMUserName` parameter
+- `iam-contractors.yml` — CloudFormation template that defines:
+  - `AWS::IAM::ManagedPolicy` for contractor permissions
+  - `AWS::IAM::Group` named `Contractors`
+  - `AWS::IAM::User` created from the `IAMUserName` parameter
   - Outputs for user name, user ARN, group name, and policy ARN
 
 ## Purpose
 
-The template is designed to support an environment where contractors need controlled access to AWS resources without the ability to escalate IAM privileges.
+The template provides a controlled contractor access model by granting necessary AWS permissions while explicitly denying IAM privilege escalation actions.
 
 ## Resources created
 
 - `AWS::IAM::ManagedPolicy` — `ContractorsAccessPolicy`
 - `AWS::IAM::Group` — `Contractors`
-- `AWS::IAM::User` — user created with the provided `IAMUserName`
+- `AWS::IAM::User` — created from the `IAMUserName` parameter
 
 ## Permissions granted
 
-The contractors group policy includes:
+The managed policy attached to the `Contractors` group includes:
 
-- EC2: Describe, list, start, and stop instance operations
-- S3: List buckets, list objects, get/put/delete objects
-- EKS: Describe clusters and nodegroups, access Kubernetes API
+- EC2: `Describe*`, `List*`, `StartInstances`, `StopInstances`
+- S3: `ListAllMyBuckets`, `ListBucket`, `GetObject`, `PutObject`, `DeleteObject`
+- EKS: `DescribeCluster`, `ListClusters`, `ListNodegroups`, `DescribeNodegroup`, `AccessKubernetesApi`
 
-It also includes a deny statement for IAM privilege escalation actions such as `iam:CreateUser`, `iam:DeleteUser`, `iam:AttachUserPolicy`, and `iam:PassRole`.
+It also includes a deny statement for IAM escalation actions such as:
+
+- `iam:CreateUser`
+- `iam:DeleteUser`
+- `iam:AttachUserPolicy`
+- `iam:PassRole`
 
 ## Deployment
 
-Use the AWS CLI or AWS CloudFormation console to deploy the stack.
+Deploy the stack with the AWS CLI or CloudFormation console.
 
-Example using AWS CLI:
+Example:
 
 ```bash
 aws cloudformation deploy \
@@ -44,22 +49,22 @@ aws cloudformation deploy \
   --capabilities CAPABILITY_NAMED_IAM
 ```
 
-> Note: This repository does not contain any actual AWS credentials or secret material. You must provide your own AWS credentials via the AWS CLI, environment variables, or other supported methods before deploying.
+> Ensure your AWS credentials are configured before deploying. This repository does not include AWS credentials or secrets.
 
 ## Parameters
 
-- `IAMUserName` — Name of the IAM user to create. Default: `contractor-user`
-- `Environment` — Deployment environment tag. Allowed values: `dev`, `staging`, `prod`. Default: `dev`
+- `IAMUserName` — IAM user name to create. Default: `contractor-user`
+- `Environment` — Environment tag. Allowed values: `dev`, `staging`, `prod`. Default: `dev`
 
 ## Outputs
 
 - `IAMUserName` — IAM user name created by the stack
 - `IAMUserArn` — ARN of the created IAM user
-- `GroupName` — Group name assigned to the user
+- `GroupName` — Name of the group assigned to the user
 - `PolicyArn` — ARN of the managed policy attached to the group
 
 ## Notes
 
-- The policy uses wildcard resources (`'*'`) for simplicity. Review and tighten resource scopes before production use.
-- The template tags the user with `ManagedBy=CloudFormation`, `Environment`, and `Purpose=ContractorAccess`.
+- The current policy uses wildcard resources (`'*'`) for simplicity. Tighten resource scope for production deployments.
+- The created user is tagged with `ManagedBy=CloudFormation`, the selected `Environment`, and `Purpose=ContractorAccess`.
 
