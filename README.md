@@ -62,3 +62,4 @@ aws cloudformation deploy \
 
 - The policy uses wildcard resources (`'*'`) for simplicity. Review and tighten resource scopes before production use.
 - The template tags the user with `ManagedBy=CloudFormation`, `Environment`, and `Purpose=ContractorAccess`.
+
